@@ -1,4 +1,4 @@
-import express, { json } from "express";
+import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 
@@ -15,5 +15,12 @@ app.use(express.json({ limit: "16kb" }));
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
+
+// Routes
+
+import userRouter from "./routes/user.routes.js";
+
+// eg: https://localhost:8000/api/v1/users/....
+app.use("/api/v1/users", userRouter);
 
 export { app };

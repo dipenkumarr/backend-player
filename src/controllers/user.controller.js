@@ -353,6 +353,85 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
         .json(new apiResponse(200, user, "Cover Image updated successfully"));
 });
 
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+    const { username } = req.params;
+
+    if (!username?.trim) {
+        throw new apiError(400, "Username is missing");
+    }
+
+    const channel = await User.aggregate([
+        // stage 1 - pipeline
+        {
+            $match: {
+                username: username?.username.toLowerCase(),
+            },
+        },
+        // stage 2 - pipeline to get subscribers
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers",
+            },
+        },
+        // stage 3 - pipeline to get channels that user susbcribed to
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo",
+            },
+        },
+        // stage 4 - pipeline to get count of subscribers and channels subscribed to
+        {
+            $addFields: {
+                subscribersCount: {
+                    $size: "$subscribers",
+                },
+                channelsSubscribedToCount: {
+                    $size: "$subscribedTo",
+                },
+                isSubscriber: {
+                    $cond: {
+                        if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+                        then: true,
+                        else: false,
+                    },
+                },
+            },
+        },
+        // stage 5 - pipeline to send over fields with 1
+        {
+            $project: {
+                fullname: 1,
+                username: 1,
+                subscribersCount: 1,
+                channelsSubscribedToCount: 1,
+                avatar: 1,
+                coverImage: 1,
+                email: 1,
+            },
+        },
+    ]);
+
+    if (!channel?.length) {
+        throw new apiError(404, "Channel not found");
+    }
+
+    return res
+        .status(200)
+        .json(
+            new apiResponse(
+                200,
+                channel[0],
+                "User channel fetched successfully"
+            )
+        );
+});
+
 export {
     registerUser,
     loginUser,
@@ -363,4 +442,5 @@ export {
     updateAccountDetails,
     updateUserAvatar,
     updateUserCoverImage,
+    getUserChannelProfile,
 };
